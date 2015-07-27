@@ -1,0 +1,472 @@
+#!/bin/bash -e
+
+solr_version='5.2.1'
+ckan_version='2.4.0'
+datapusher_version='0.0.6'
+
+# Install system packages required by both CKAN and Apache Solr.
+yum install -y \
+	xml-commons git postgresql-server postgresql-devel postgresql \
+	python-devel libxslt libxslt-devel libxml2 libxml2-devel \
+	python-virtualenv gcc gcc-c++ make java-1.8.0-openjdk-devel \
+	java-1.8.0-openjdk unzip policycoreutils-python mod_wsgi httpd
+
+cd /opt
+
+# Prepare an isolated environment for CKAN dependencies, because most of them
+# have not been packaged for Fedora yet and half of them are already obsolete.
+if [ ! -f ckan/bin/python ]; then
+	virtualenv --no-site-packages --python=/usr/bin/python2.7 ckan
+fi
+
+# Update our PATH and possibly other variables.
+. ckan/bin/activate
+
+# Install CKAN and Datapusher from the official repository.
+pip install -e "git+https://github.com/ckan/ckan.git@ckan-${ckan_version}#egg=ckan"
+pip install -e "git+https://github.com/ckan/datapusher.git@${datapusher_version}#egg=datapusher"
+
+# Pull in their dependencies.
+pip install -r ckan/src/ckan/requirements.txt
+pip install -r ckan/src/datapusher/requirements.txt
+
+# Install some plugins as well.
+pip install -e 'git+https://github.com/ckan/ckanext-dashboard.git#egg=ckanext_dashboard'
+pip install -e 'git+https://github.com/ckan/ckanext-viewhelpers.git#egg=ckanext_viewhelpers'
+pip install -e 'git+https://github.com/ckan/ckanext-pages.git#egg=ckanext_pages'
+
+# Fix botched SQLAlchemy versions.
+pip install 'sqlalchemy-migrate==0.8.2'
+pip install 'sqlalchemy==0.8.4'
+pip install 'vdm==0.12'
+
+# Download czech language support for PostgreSQL.
+if [ ! -f /usr/share/pgsql/tsearch_data/czech.dict ]; then
+	curl -L http://postgres.cz/data/czech.tar.gz \
+	| tar -C /usr/share/pgsql/tsearch_data -xzf- --strip-components 1
+fi
+
+# Enable the database cluster service.
+systemctl enable postgresql.service
+
+# Only initialize the database cluster once.
+if [ ! -f /var/lib/pgsql/data/PG_VERSION ]; then
+	runuser - postgres -c 'initdb || :'
+fi
+
+# Set up database cluster access rules.
+cat >/var/lib/pgsql/data/pg_hba.conf <<EOF
+# TYPE	DATABASE	USER		ADDRESS			METHOD
+local	all		all					trust
+host	all		all		127.0.0.1/32		md5
+host	all		all		::1/128			md5
+EOF
+
+# (Re-)start the database cluster service.
+systemctl restart postgresql.service
+
+# Create an user that will own the databases.
+runuser - postgres -c 'createuser ckan || :'
+runuser - postgres -c 'createuser datastore || :'
+
+# Create the databases.
+runuser - postgres -c 'createdb -E utf-8 -O ckan ckan || :'
+runuser - postgres -c 'createdb -E utf-8 -O ckan datastore || :'
+
+# Configure czech fulltext.
+runuser - postgres -c 'psql -U ckan ckan' <<EOF
+CREATE TEXT SEARCH DICTIONARY cspell
+   (template=ispell, dictfile = czech, afffile=czech, stopwords=czech);
+CREATE TEXT SEARCH CONFIGURATION cs (copy=english);
+ALTER TEXT SEARCH CONFIGURATION cs
+   ALTER MAPPING FOR word, asciiword WITH cspell, simple;
+EOF
+
+runuser - postgres -c 'psql -U ckan datastore' <<EOF
+CREATE TEXT SEARCH DICTIONARY cspell
+   (template=ispell, dictfile = czech, afffile=czech, stopwords=czech);
+CREATE TEXT SEARCH CONFIGURATION cs (copy=english);
+ALTER TEXT SEARCH CONFIGURATION cs
+   ALTER MAPPING FOR word, asciiword WITH cspell, simple;
+EOF
+
+# Prepare CKAN storage.
+mkdir -p /var/lib/ckan
+chmod 1777 /var/lib/ckan
+
+# Prepare CKAN configuration.
+mkdir -p /etc/ckan
+
+cat >/etc/ckan/ckan.ini <<EOF
+[DEFAULT]
+debug = false
+
+[server:main]
+use = egg:Paste#http
+host = 0.0.0.0
+port = 80
+
+[app:main]
+use = egg:ckan
+full_stack = true
+cache_dir = /tmp/%(ckan.site_id)s/
+beaker.session.key = ckan
+
+beaker.session.secret = $(openssl rand -base64 18)
+app_instance_uuid = {$(uuidgen -r)}
+
+who.config_file = %(here)s/who.ini
+who.log_level = warning
+who.log_file = %(cache_dir)s/who_log.ini
+# who.timeout = 86400
+
+## Database Settings
+sqlalchemy.url = postgresql://ckan:@/ckan
+
+ckan.datastore.write_url = postgresql://ckan:@/datastore
+ckan.datastore.read_url = postgresql://datastore:@/datastore
+
+# PostgreSQL' full-text search parameters
+ckan.datastore.default_fts_lang = cs
+ckan.datastore.default_fts_index_method = gist
+
+## Site Settings
+
+ckan.site_url = http://$(hostname --fqdn)
+
+
+## Authorization Settings
+
+ckan.auth.anon_create_dataset = false
+ckan.auth.create_unowned_dataset = false
+ckan.auth.create_dataset_if_not_in_organization = false
+ckan.auth.user_create_groups = false
+ckan.auth.user_create_organizations = false
+ckan.auth.user_delete_groups = false
+ckan.auth.user_delete_organizations = false
+ckan.auth.create_user_via_api = false
+ckan.auth.create_user_via_web = false
+ckan.auth.roles_that_cascade_to_sub_groups = admin
+
+
+## Search Settings
+
+ckan.site_id = ckan
+solr_url = http://127.0.0.1:8983/solr/ckan
+
+#ckan.simple_search = 1
+
+
+## CORS Settings
+
+# ckan.cors.origin_allow_all = true
+# ckan.cors.origin_whitelist = http://example1.com http://example2.com
+
+
+## Plugins Settings
+
+ckan.plugins = resource_proxy datastore datapusher image_view text_view recline_view recline_grid_view recline_graph_view recline_map_view stats viewhelpers dashboard_preview pages
+ckan.views.default_views = image_view text_view recline_view recline_grid_view
+
+
+## Front-End Settings
+
+ckan.site_title = CKAN
+ckan.site_logo = /base/images/ckan-logo.png
+ckan.site_description =
+ckan.favicon = /images/icons/ckan.ico
+ckan.gravatar_default = identicon
+ckan.preview.direct = png jpg gif
+ckan.preview.loadable = html htm rdf+xml owl+xml xml n3 n-triples turtle plain atom csv tsv rss txt json
+
+# package_hide_extras = for_search_index_only
+#package_edit_return_url = http://another.frontend/dataset/<NAME>
+#package_new_return_url = http://another.frontend/dataset/<NAME>
+#ckan.recaptcha.publickey =
+#ckan.recaptcha.privatekey =
+#licenses_group_url = http://licenses.opendefinition.org/licenses/groups/ckan.json
+# ckan.template_footer_end =
+
+
+## Internationalisation Settings
+ckan.locale_default = cs_CZ
+ckan.locale_order = en pt_BR ja it cs_CZ ca es fr el sv sr sr@latin no sk fi ru de pl nl bg ko_KR hu sa sl lv
+ckan.locales_offered = cs_CZ en
+ckan.locales_filtered_out = en_GB
+
+## Feeds Settings
+
+ckan.feeds.authority_name =
+ckan.feeds.date =
+ckan.feeds.author_name =
+ckan.feeds.author_link =
+
+## Storage Settings
+
+ckan.storage_path = /var/lib/ckan
+ckan.max_resource_size = 10
+ckan.max_image_size = 2
+
+## Datapusher settings
+
+# Make sure you have set up the DataStore
+
+ckan.datapusher.formats = csv xls xlsx tsv application/csv application/vnd.ms-excel application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+ckan.datapusher.url = http://$(hostname --fqdn):8008
+
+# Resource Proxy settings
+# Preview size limit, default: 1MB
+#ckan.resource_proxy.max_file_size = 1 * 1024 * 1024
+
+## Activity Streams Settings
+
+#ckan.activity_streams_enabled = true
+#ckan.activity_list_limit = 31
+#ckan.activity_streams_email_notifications = true
+#ckan.email_notifications_since = 2 days
+ckan.hide_activity_from_users = %(ckan.site_id)s
+
+
+## Email settings
+
+#email_to = you@yourdomain.com
+#error_email_from = paste@localhost
+#smtp.server = localhost
+#smtp.starttls = False
+#smtp.user = your_username@gmail.com
+#smtp.password = your_password
+#smtp.mail_from =
+
+
+## Logging configuration
+[loggers]
+keys = root, ckan, ckanext
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARNING
+handlers = console
+
+[logger_ckan]
+level = INFO
+handlers = console
+qualname = ckan
+propagate = 0
+
+[logger_ckanext]
+level = DEBUG
+handlers = console
+qualname = ckanext
+propagate = 0
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(asctime)s %(levelname)-5.5s [%(name)s] %(message)s
+EOF
+
+cat >/etc/ckan/ckan.wsgi <<EOF
+#!/usr/bin/python -tt
+
+import os
+
+activate_this = os.path.join('/opt/ckan/bin/activate_this.py')
+execfile(activate_this, dict(__file__=activate_this))
+
+from paste.deploy import loadapp
+from paste.script.util.logging_config import fileConfig
+
+fileConfig('/etc/ckan/ckan.ini')
+application = loadapp('config:/etc/ckan/ckan.ini')
+EOF
+
+cat >/etc/ckan/datapusher.wsgi <<EOF
+#!/usr/bin/python -tt
+
+import os
+
+activate_this = os.path.join('/opt/ckan/bin/activate_this.py')
+execfile(activate_this, dict(__file__=activate_this))
+
+import ckanserviceprovider.web as web
+import datapusher.jobs as jobs
+
+os.environ['JOB_CONFIG'] = '/etc/ckan/datapusher_settings.py'
+web.init()
+application = web.app
+EOF
+
+cat >/etc/ckan/datapusher_settings.py <<EOF
+#!/usr/bin/python -tt
+
+DEBUG = False
+TESTING = False
+SECRET_KEY = '$(uuidgen -r)'
+USERNAME = '$(uuidgen -r)'
+PASSWORD = '$(uuidgen -r)'
+NAME = 'datapusher'
+
+SQLALCHEMY_DATABASE_URI = 'sqlite:////var/lib/ckan/datapusher-jobs.db'
+
+HOST = '0.0.0.0'
+PORT = 8008
+
+#FROM_EMAIL = 'server-error@example.com'
+#ADMINS = ['yourname@example.com']  # where to send emails
+
+#LOG_FILE = '/tmp/ckan_service.log'
+STDERR = True
+EOF
+
+cp -n ckan/src/ckan/who.ini /etc/ckan/
+
+cat >/etc/httpd/conf.d/ckan.conf <<EOF
+WSGISocketPrefix /var/run/wsgi
+
+<VirtualHost 0.0.0.0:80>
+	ServerName $(hostname --fqdn)
+
+	WSGIScriptAlias / /etc/ckan/ckan.wsgi
+	WSGIPassAuthorization On
+	WSGIDaemonProcess ckan display-name=ckan processes=2 threads=15
+	WSGIProcessGroup ckan
+
+	<Location />
+		Require all granted
+	</Location>
+
+	ErrorLog /var/log/httpd/ckan_error
+	CustomLog /var/log/httpd/ckan_access combined
+</VirtualHost>
+EOF
+
+cat >/etc/httpd/conf.d/datapusher.conf <<EOF
+Listen 8008
+
+<VirtualHost 0.0.0.0:8008>
+	ServerName $(hostname --fqdn)
+
+	WSGIScriptAlias / /etc/ckan/datapusher.wsgi
+	WSGIPassAuthorization On
+	WSGIDaemonProcess datapusher display-name=datapusher processes=2 threads=15
+	WSGIProcessGroup datapusher
+
+	<Location />
+		Require all granted
+	</Location>
+
+	ErrorLog /var/log/httpd/datapusher_error
+	CustomLog /var/log/httpd/datapusher_access combined
+</VirtualHost>
+EOF
+
+# Create a separate user to own Solr data.
+useradd -r -m -d /var/lib/solr -s /bin/bash solr || :
+
+# Download and extract Solr.
+if [ ! -d /opt/solr ]; then
+	curl -L http://apache.mirrors.ionfish.org/lucene/solr/${solr_version}/solr-${solr_version}.tgz \
+	| tar --owner=solr --group=solr -C /opt -xzf-
+	mv /opt/solr-${solr_version} /opt/solr
+	chown -R solr:solr /opt/solr
+fi
+
+# Copy relevant files to the new Solr home directory.
+cp /opt/solr/server/solr/solr.xml /var/lib/solr/
+
+# Configure Jetty to use stderr for logging.
+cat >/opt/solr/server/resources/jetty-logging.properties <<EOF
+# Configure Jetty for StdErrLog Logging
+org.eclipse.jetty.util.log.class=org.eclipse.jetty.util.log.StrErrLog
+# Overall Logging Level is INFO
+org.eclipse.jetty.LEVEL=INFO
+# Detail Logging for WebSocket
+org.eclipse.jetty.websocket.LEVEL=INFO
+EOF
+
+# Configure Solr to use stderr for logging.
+cat >/opt/solr/server/resources/log4j.properties <<EOF
+solr.log=logs
+log4j.rootLogger=INFO, CONSOLE
+log4j.appender.CONSOLE=org.apache.log4j.ConsoleAppender
+log4j.appender.CONSOLE.layout=org.apache.log4j.PatternLayout
+log4j.appender.CONSOLE.layout.ConversionPattern=%p: %m%n
+log4j.logger.org.apache.zookeeper=WARN
+log4j.logger.org.apache.hadoop=WARN
+log4j.logger.org.apache.solr.update.LoggingInfoStream=OFF
+EOF
+
+# Fix permissions.
+chown -R solr:solr /var/lib/solr
+
+# Allow web server to network-connect.
+getsebool httpd_can_network_connect | grep -q 'on$' \
+|| setsebool -P httpd_can_network_connect=1
+
+# Configure the Solr service.
+cat >/etc/systemd/system/solr.service <<EOF
+[Unit]
+Description=Apache Solr
+After=network.target
+
+[Service]
+Restart=on-failure
+ExecStart=/opt/solr/bin/solr start -f -p 8983 -s /var/lib/solr
+ExecStop=/opt/solr/bin/solr stop
+User=solr
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Let systemd pick up new config files.
+systemctl daemon-reload
+
+# Enable new services.
+systemctl enable httpd.service
+systemctl enable solr.service
+
+# (Re-)start new services.
+systemctl restart httpd.service
+systemctl restart solr.service
+
+# Allow inbound http(s) traffic.
+firewall-cmd --zone=public --add-service=http --permanent
+firewall-cmd --zone=public --add-service=https --permanent
+firewall-cmd --reload
+
+# Create a Solr core for CKAN.
+if [ ! -d /var/lib/solr/ckan ]; then
+	runuser - solr -c '/opt/solr/bin/solr create_core -d basic_configs -c ckan'
+fi
+
+# Install correct schema.
+# Also, fix the _version_ field type so that Solr survives restarts.
+sed -re 's#(name="_version_".*type=")string(")#\1long\2#' \
+	</opt/ckan/src/ckan/ckan/config/solr/schema.xml \
+	>/var/lib/solr/ckan/conf/schema.xml
+
+# Reload Solr once again to read the schema.xml.
+systemctl restart solr.service
+
+# Wait for Solr to come up for paster scripts to work correctly.
+echo "Waiting for Solr..."
+while ! /opt/solr/bin/solr status &>/dev/null; do
+	sleep 1
+done
+
+# Initialize the CKAN database.
+paster --plugin=ckan db init -c /etc/ckan/ckan.ini
+paster --plugin=ckan datastore set-permissions -c /etc/ckan/ckan.ini \
+| runuser - postgres -c 'psql'
+
+# EOF

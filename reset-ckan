@@ -1,0 +1,16 @@
+#!/bin/bash -e
+
+service httpd stop
+service solr stop
+
+rm -rf /opt/solr /var/lib/solr
+
+sleep 2
+userdel solr || :
+
+runuser - postgres -c 'psql' <<EOF
+DROP DATABASE ckan;
+DROP DATABASE datastore;
+DROP ROLE ckan;
+DROP ROLE datastore;
+EOF
