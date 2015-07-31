@@ -1,7 +1,6 @@
 #!/bin/bash -e
 
 solr_version='5.2.1'
-ckan_version='2.4.0'
 datapusher_version='0.0.6'
 
 # Install system packages required by both CKAN and Apache Solr.
@@ -23,7 +22,7 @@ fi
 . ckan/bin/activate
 
 # Install CKAN and Datapusher from the official repository.
-pip install -e "git+https://github.com/ckan/ckan.git@ckan-${ckan_version}#egg=ckan"
+pip install -e "git+https://github.com/singularita-corp/ckan.git@praha#egg=ckan"
 pip install -e "git+https://github.com/ckan/datapusher.git@${datapusher_version}#egg=datapusher"
 
 # Pull in their dependencies.
@@ -32,7 +31,7 @@ pip install -r ckan/src/datapusher/requirements.txt
 
 # Install some plugins as well.
 pip install -e 'git+https://github.com/ckan/ckanext-dashboard.git#egg=ckanext_dashboard'
-pip install -e 'git+https://github.com/ckan/ckanext-viewhelpers.git#egg=ckanext_viewhelpers'
+pip install -e 'git+https://github.com/singularita-corp/ckanext-viewhelpers.git#egg=ckanext_viewhelpers'
 pip install -e 'git+https://github.com/ckan/ckanext-pages.git#egg=ckanext_pages'
 
 # Fix botched SQLAlchemy versions.
@@ -172,7 +171,7 @@ ckan.views.default_views = image_view text_view recline_view recline_grid_view
 ## Front-End Settings
 
 ckan.site_title = CKAN
-ckan.site_logo = /base/images/ckan-logo.png
+ckan.site_logo = /base/images/prague-ckan.png
 ckan.site_description =
 ckan.favicon = /images/icons/ckan.ico
 ckan.gravatar_default = identicon
