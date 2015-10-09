@@ -33,6 +33,7 @@ pip install -r ckan/src/datapusher/requirements.txt
 pip install -e 'git+https://github.com/ckan/ckanext-dashboard.git#egg=ckanext_dashboard'
 pip install -e 'git+https://github.com/singularita-corp/ckanext-viewhelpers.git#egg=ckanext_viewhelpers'
 pip install -e 'git+https://github.com/ckan/ckanext-pages.git#egg=ckanext_pages'
+pip install ckanext-geoview
 
 # Fix botched SQLAlchemy versions.
 pip install 'sqlalchemy-migrate==0.8.2'
@@ -164,8 +165,8 @@ solr_url = http://127.0.0.1:8983/solr/ckan
 
 ## Plugins Settings
 
-ckan.plugins = resource_proxy datastore datapusher image_view text_view recline_view recline_grid_view recline_graph_view recline_map_view stats viewhelpers dashboard_preview pages
-ckan.views.default_views = image_view text_view recline_view recline_grid_view
+ckan.plugins = resource_proxy datastore datapusher image_view text_view recline_view recline_grid_view recline_graph_view recline_map_view stats viewhelpers dashboard_preview pages geojson_view geo_view
+ckan.views.default_views = image_view text_view recline_view recline_grid_view geojson_view geo_view
 
 
 ## Front-End Settings
