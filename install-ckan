@@ -227,6 +227,9 @@ ckan.datapusher.url = http://$(hostname --fqdn):8008
 ckan.hide_activity_from_users = %(ckan.site_id)s
 
 
+## Page view tracking
+ckan.tracking_enabled = true
+
 ## Email settings
 
 #email_to = you@yourdomain.com
@@ -368,6 +371,15 @@ Listen 8008
 	CustomLog /var/log/httpd/datapusher_access combined
 </VirtualHost>
 EOF
+
+# Update page view tracking database via cron
+cat >/etc/cron.hourly/ckan-pageviews <<EOF
+#!/bin/bash
+/opt/ckan/bin/paster --plugin=ckan tracking update -c /etc/ckan/ckan.ini && \
+/opt/ckan/bin/paster --plugin=ckan search-index rebuild -r -c /etc/ckan/ckan.ini
+EOF
+
+chmod 0755 /etc/cron.hourly/ckan-pageviews
 
 # Create a separate user to own Solr data.
 useradd -r -m -d /var/lib/solr -s /bin/bash solr || :
