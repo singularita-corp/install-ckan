@@ -33,7 +33,7 @@ pip install -r ckan/src/datapusher/requirements.txt
 pip install -e 'git+https://github.com/ckan/ckanext-dashboard.git#egg=ckanext_dashboard'
 pip install -e 'git+https://github.com/singularita-corp/ckanext-viewhelpers.git#egg=ckanext_viewhelpers'
 pip install -e 'git+https://github.com/ckan/ckanext-pages.git#egg=ckanext_pages'
-pip install ckanext-geoview
+pip install -e 'git+https://github.com/singularita-corp/ckanext-geoview.git#egg=ckanext_geoview'
 
 # Fix botched SQLAlchemy versions.
 pip install 'sqlalchemy-migrate==0.8.2'
