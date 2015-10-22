@@ -347,8 +347,8 @@ WSGISocketPrefix /var/run/wsgi
 		Require all granted
 	</Location>
 
-	ErrorLog /var/log/httpd/ckan_error
-	CustomLog /var/log/httpd/ckan_access combined
+	ErrorLog /var/log/httpd/ckan_error_log
+	CustomLog /var/log/httpd/ckan_access_log combined
 </VirtualHost>
 EOF
 
@@ -367,8 +367,8 @@ Listen 8008
 		Require all granted
 	</Location>
 
-	ErrorLog /var/log/httpd/datapusher_error
-	CustomLog /var/log/httpd/datapusher_access combined
+	ErrorLog /var/log/httpd/datapusher_error_log
+	CustomLog /var/log/httpd/datapusher_access_log combined
 </VirtualHost>
 EOF
 
