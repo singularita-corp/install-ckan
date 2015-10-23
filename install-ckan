@@ -34,6 +34,7 @@ pip install -e 'git+https://github.com/ckan/ckanext-dashboard.git#egg=ckanext_da
 pip install -e 'git+https://github.com/singularita-corp/ckanext-viewhelpers.git#egg=ckanext_viewhelpers'
 pip install -e 'git+https://github.com/ckan/ckanext-pages.git#egg=ckanext_pages'
 pip install -e 'git+https://github.com/singularita-corp/ckanext-geoview.git#egg=ckanext_geoview'
+pip install -e 'git+https://github.com/singularita-corp/ckanext-odczdataset.git#egg=ckanext-odczdataset'
 
 # Fix botched SQLAlchemy versions.
 pip install 'sqlalchemy-migrate==0.8.2'
@@ -165,7 +166,7 @@ solr_url = http://127.0.0.1:8983/solr/ckan
 
 ## Plugins Settings
 
-ckan.plugins = resource_proxy datastore datapusher image_view text_view recline_view recline_grid_view recline_graph_view recline_map_view stats viewhelpers dashboard_preview pages geojson_view geo_view
+ckan.plugins = resource_proxy datastore datapusher image_view text_view recline_view recline_grid_view recline_graph_view recline_map_view stats viewhelpers dashboard_preview pages geojson_view geo_view dataset_odczdataset
 ckan.views.default_views = image_view text_view recline_view recline_grid_view geojson_view geo_view
 
 
