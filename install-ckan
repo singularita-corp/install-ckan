@@ -215,8 +215,8 @@ ckan.datapusher.formats = csv xls xlsx tsv application/csv application/vnd.ms-ex
 ckan.datapusher.url = http://$(hostname --fqdn):8008
 
 # Resource Proxy settings
-# Preview size limit, default: 1MB
-ckan.resource_proxy.max_file_size = 10 * 1024 * 1024
+# Preview size limit, default: 10MB
+ckan.resource_proxy.max_file_size = 10485760
 # Preview chunk size limit
 ckan.resource_proxy.chunk_size = 4096
 
