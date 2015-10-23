@@ -216,7 +216,9 @@ ckan.datapusher.url = http://$(hostname --fqdn):8008
 
 # Resource Proxy settings
 # Preview size limit, default: 1MB
-#ckan.resource_proxy.max_file_size = 1 * 1024 * 1024
+ckan.resource_proxy.max_file_size = 10 * 1024 * 1024
+# Preview chunk size limit
+ckan.resource_proxy.chunk_size = 4096
 
 ## Activity Streams Settings
 
