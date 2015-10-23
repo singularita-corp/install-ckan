@@ -1,0 +1,10 @@
+#!/bin/bash -e
+
+cd /opt/ckan
+. bin/activate
+exec python \
+        -W ignore::DeprecationWarning \
+        -W ignore::FutureWarning \
+        bin/paster --plugin=ckan "${@}"
+
+# EOF

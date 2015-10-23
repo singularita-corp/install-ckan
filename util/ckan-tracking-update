@@ -1,0 +1,8 @@
+#!/bin/bash -e
+
+export PATH="$(dirname "${0}"):${PATH}"
+
+ckan tracking update -c /etc/ckan/ckan.ini
+ckan search-index rebuild -r -c /etc/ckan/ckan.ini
+
+# EOF
