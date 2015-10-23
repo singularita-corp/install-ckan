@@ -427,20 +427,7 @@ getsebool httpd_can_network_connect | grep -q 'on$' \
 || setsebool -P httpd_can_network_connect=1
 
 # Configure the Solr service.
-cat >/etc/systemd/system/solr.service <<EOF
-[Unit]
-Description=Apache Solr
-After=network.target
-
-[Service]
-Restart=on-failure
-ExecStart=/opt/solr/bin/solr start -f -p 8983 -s /var/lib/solr
-ExecStop=/opt/solr/bin/solr stop
-User=solr
-
-[Install]
-WantedBy=multi-user.target
-EOF
+install -m644 -D units/solr.service /etc/systemd/system/solr.service
 
 # Let systemd pick up new config files.
 systemctl daemon-reload

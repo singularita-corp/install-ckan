@@ -1,0 +1,12 @@
+[Unit]
+Description=Apache Solr
+After=network.target
+
+[Service]
+Restart=on-failure
+ExecStart=/opt/solr/bin/solr start -f -p 8983 -s /var/lib/solr
+ExecStop=/opt/solr/bin/solr stop
+User=solr
+
+[Install]
+WantedBy=multi-user.target
