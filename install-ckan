@@ -2,6 +2,8 @@
 
 solr_version='5.2.1'
 
+base="$(cd "$(dirname "${0}")" && pwd)"
+
 # Install system packages required by both CKAN and Apache Solr.
 yum install -y \
 	xml-commons git postgresql-server postgresql-devel postgresql \
@@ -427,7 +429,7 @@ getsebool httpd_can_network_connect | grep -q 'on$' \
 || setsebool -P httpd_can_network_connect=1
 
 # Configure the Solr service.
-install -m644 -D units/solr.service /etc/systemd/system/solr.service
+install -m644 -D "${base}"/units/solr.service /etc/systemd/system/solr.service
 
 # Let systemd pick up new config files.
 systemctl daemon-reload
