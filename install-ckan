@@ -42,6 +42,9 @@ pip install 'sqlalchemy-migrate==0.8.2'
 pip install 'sqlalchemy==0.8.4'
 pip install 'vdm==0.12'
 
+# Fix missing paster plugin dependencies.
+pip install 'polib'
+
 # Download czech language support for PostgreSQL.
 if [ ! -f /usr/share/pgsql/tsearch_data/czech.dict ]; then
 	curl -L http://postgres.cz/data/czech.tar.gz \
