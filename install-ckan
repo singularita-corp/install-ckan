@@ -393,7 +393,7 @@ useradd -r -m -d /var/lib/solr -s /bin/bash solr || :
 
 # Download and extract Solr.
 if [ ! -d /opt/solr ]; then
-	curl -L http://apache.mirrors.ionfish.org/lucene/solr/${solr_version}/solr-${solr_version}.tgz \
+	curl -L http://archive.apache.org/dist/lucene/solr/${solr_version}/solr-${solr_version}.tgz \
 	| tar --owner=solr --group=solr -C /opt -xzf-
 	mv /opt/solr-${solr_version} /opt/solr
 	chown -R solr:solr /opt/solr
