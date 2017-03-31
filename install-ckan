@@ -23,8 +23,8 @@ fi
 . ckan/bin/activate
 
 # Install CKAN and Datapusher from the official repository.
-pip install -e "git+https://github.com/singularita-corp/ckan.git@praha#egg=ckan"
-pip install -e "git+https://github.com/singularita-corp/datapusher.git@praha#egg=datapusher"
+pip install -e "git+https://github.com/singularita/ckan.git@praha#egg=ckan"
+pip install -e "git+https://github.com/singularita/datapusher.git@praha#egg=datapusher"
 
 # Pull in their dependencies.
 pip install -r ckan/src/ckan/requirements.txt
@@ -32,10 +32,10 @@ pip install -r ckan/src/datapusher/requirements.txt
 
 # Install some plugins as well.
 pip install -e 'git+https://github.com/ckan/ckanext-dashboard.git#egg=ckanext_dashboard'
-pip install -e 'git+https://github.com/singularita-corp/ckanext-viewhelpers.git#egg=ckanext_viewhelpers'
+pip install -e 'git+https://github.com/singularita/ckanext-viewhelpers.git#egg=ckanext_viewhelpers'
 pip install -e 'git+https://github.com/ckan/ckanext-pages.git#egg=ckanext_pages'
-pip install -e 'git+https://github.com/singularita-corp/ckanext-geoview.git#egg=ckanext_geoview'
-pip install -e 'git+https://github.com/singularita-corp/ckanext-odczdataset.git#egg=ckanext-odczdataset'
+pip install -e 'git+https://github.com/singularita/ckanext-geoview.git#egg=ckanext_geoview'
+pip install -e 'git+https://github.com/singularita/ckanext-odczdataset.git#egg=ckanext-odczdataset'
 
 # Fix botched SQLAlchemy versions.
 pip install 'sqlalchemy-migrate==0.8.2'
