@@ -1,0 +1,11 @@
+Script to instal Singularita's fork of CKAN on CENTOS7.
+After you run this script you need to edit file /var/lib/solr/ckan/conf/solrconfig.xml thusly:
+replace 
+<schemaFactory class="ManagedIndexSchemaFactory">
+    <bool name="mutable">true</bool>
+    <str name="managedSchemaResourceName">managed-schema</str>
+</schemaFactory>
+
+with
+ <schemaFactory class="ClassicIndexSchemaFactory"/>
+ </schemaFactory>

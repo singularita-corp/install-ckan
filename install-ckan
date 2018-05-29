@@ -1,15 +1,20 @@
 #!/bin/bash -e
 
-solr_version='5.2.1'
+solr_version='5.5.5'
 
 base="$(cd "$(dirname "${0}")" && pwd)"
+# Enable epel repo for redis instalation
+if ! yum repolist|grep epel; then
+    yum install -y http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+fi
 
 # Install system packages required by both CKAN and Apache Solr.
 yum install -y \
 	xml-commons git postgresql-server postgresql-devel postgresql \
 	python-devel libxslt libxslt-devel libxml2 libxml2-devel \
 	python-virtualenv gcc gcc-c++ make java-1.8.0-openjdk-devel \
-	java-1.8.0-openjdk unzip policycoreutils-python mod_wsgi httpd
+	java-1.8.0-openjdk unzip policycoreutils-python mod_wsgi httpd \
+	redis
 
 cd /opt
 
