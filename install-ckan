@@ -98,6 +98,8 @@ EOF
 # Prepare CKAN storage.
 mkdir -p /var/lib/ckan
 chmod 1777 /var/lib/ckan
+semanage fcontext -a -t httpd_var_lib_t '/var/lib/ckan(/.*)?'
+restorecon -R /var/lib/ckan
 
 # Prepare CKAN configuration.
 mkdir -p /etc/ckan
